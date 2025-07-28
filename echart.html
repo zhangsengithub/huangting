@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>知识图谱可视化系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/neo4j-driver"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f1b3a, #1d2c4e);
+            color: #ecf0f1;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-bottom: 1px solid rgba(52, 152, 219, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at top right, rgba(46, 204, 113, 0.1), transparent 70%), radial-gradient(circle at bottom left, rgba(52, 152, 219, 0.1), transparent 70%);
+            z-index: -1;
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            letter-spacing: 1px;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: #bdc3c7;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 3fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .stats-panel {
+            background: rgba(20, 30, 60, 0.7);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(52, 152, 219, 0.2);
+        }
+        
+        .panel-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #3498db;
+            display: flex;
+            align-items: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(52, 152, 219, 0.3);
+        }
+        
+        .panel-title i {
+            margin-right: 10px;
+        }
+        
+        .stat-card {
+            background: rgba(15, 25, 45, 0.6);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            border-left-color: #2ecc71;
+        }
+        
+        .stat-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: #bdc3c7;
+        }
+        
+        .stat-card .value {
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: #2ecc71;
+            text-shadow: 0 0 8px rgba(46, 204, 113, 0.3);
+        }
+        
+        .chart-container {
+            background: rgba(20, 30, 60, 0.7);
+            border-radius: 15px;
+            padding: 20px;
+            height: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(52, 152, 219, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .chart-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 80% 20%, rgba(46, 204, 113, 0.05), transparent 70%);
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(15, 25, 45, 0.6);
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(52, 152, 219, 0.2);
+        }
+        
+        .control-group {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn i {
+            font-size: 1.2rem;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #3498db;
+        }
+        
+        .btn-highlight {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            font-size: 1.5rem;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #3498db;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 20px;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .error {
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+        
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+            background: rgba(15, 25, 45, 0.6);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(52, 152, 219, 0.2);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 10px;
+            border-radius: 6px;
+            background: rgba(30, 40, 70, 0.5);
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+        }
+        
+        .legend-rel {
+            background: rgba(30, 40, 70, 0.5);
+            padding: 5px 10px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .rel-color {
+            width: 25px;
+            height: 3px;
+            border-radius: 2px;
+            background: #f39c12;
+        }
+        
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            .chart-container {
+                height: 600px;
+            }
+        }
+        
+        .glow {
+            animation: glow 2s infinite alternate;
+        }
+        
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 5px rgba(46, 204, 113, 0.5);
+            }
+            to {
+                box-shadow: 0 0 15px rgba(46, 204, 113, 0.8);
+            }
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: #bdc3c7;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        /* 搜索区域样式 */
+        
+        .search-container {
+            background: rgba(30, 40, 70, 0.7);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 2px auto 4px;
+            max-width: 900px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(52, 152, 219, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .search-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .search-header h2 {
+            font-size: 1.6rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--light);
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.6);
+        }
+        
+        .search-options {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .option-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .option-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #bdc3c7;
+            font-size: 0.95rem;
+        }
+        
+        .category-select {
+            width: 100%;
+            padding: 12px 20px;
+            border-radius: 10px;
+            background: rgba(20, 30, 50, 0.9);
+            color: var(--light);
+            border: 2px solid rgba(52, 152, 219, 0.5);
+            font-size: 1rem;
+        }
+        
+        .search-results {
+            background: rgba(20, 30, 50, 0.7);
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid rgba(52, 152, 219, 0.3);
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .results-title {
+            font-size: 1.1rem;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .results-count {
+            background: var(--primary);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .clear-history {
+            background: transparent;
+            border: none;
+            color: var(--gray);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        
+        .clear-history:hover {
+            color: var(--warning);
+        }
+        
+        .result-item {
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            background: rgba(30, 45, 70, 0.5);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            border-left: 3px solid var(--primary);
+        }
+        
+        .result-item:hover {
+            background: rgba(52, 152, 219, 0.2);
+            transform: translateX(5px);
+        }
+        
+        .result-category {
+            background: rgba(46, 204, 113, 0.2);
+            color: var(--secondary);
+            padding: 3px 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            margin-right: 12px;
+        }
+        
+        .result-name {
+            font-weight: 500;
+            font-size: 1.05rem;
+        }
+        
+        .history-section {
+            margin-top: 25px;
+        }
+        
+        .history-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            color: var(--warning);
+            margin-bottom: 15px;
+        }
+        
+        .history-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .history-item {
+            background: rgba(243, 156, 18, 0.15);
+            color: var(--warning);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .history-item:hover {
+            background: rgba(243, 156, 18, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .history-item i {
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" class="container">
+        <header>
+            <div class="header-bg"></div>
+            <h1>知识图谱可视化系统</h1>
+            <p class="subtitle">全面展示知识图谱中的实体、关系及属性信息，支持交互式探索与数据分析</p>
+        </header>
+
+        <div class="dashboard">
+            <div class="search-container">
+                <div class="search-header panel-title">
+                    <h2><i class="fas fa-search"></i> 实体检索系统</h2>
+                </div>
+                <div class="search-box">
+                    <div class="search-input-container">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="search-input" placeholder="输入实体名称..." v-model="searchTerm" @keyup.enter="performSearch">
+                    </div>
+                    <button class="search-btn" @click="performSearch">
+                    <i class="fas fa-search"></i> 搜索实体
+                    </button>
+                </div>
+                <div class="search-options">
+                    <div class="option-group">
+                        <label class="option-label"><i class="fas fa-filter"></i> 按类别过滤</label>
+                        <select class="category-select" v-model="selectedCategory">
+                        <option value="all">所有类别</option>
+                        <option v-for="(category, index) in categories" :key="index" :value="category.name">
+                            {{ category.name }} ({{ category.count }})
+                        </option>
+                    </select>
+                    </div>
+
+                    <div class="option-group">
+                        <label class="option-label"><i class="fas fa-sliders-h"></i> 高级选项</label>
+                        <div style="display: flex; gap: 15px; padding-top: 10px;">
+                            <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="checkbox" v-model="exactMatch"> 精确匹配
+                        </label>
+                            <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="checkbox" v-model="includeRelations"> 包含关系
+                        </label>
+                        </div>
+                    </div>
+                </div>
+                <!-- search result -->
+                <div class="search-results">
+                    <div class="results-header">
+                        <div class="results-title">
+                            <i class="fas fa-list"></i> 搜索结果
+                            <span class="results-count" v-if="searchResults.length > 0">{{ searchResults.length }}</span>
+                        </div>
+                        <button class="clear-history" @click="clearSearchHistory">
+                            <i class="fas fa-trash-alt"></i> 清除历史
+                        </button>
+                    </div>
+
+                    <div v-if="searchResults.length > 0">
+                        <div class="result-item" v-for="(result, index) in searchResults" :key="index" @click="highlightNode(result.id)">
+                            <span class="result-category">{{ result.category }}</span>
+                            <span class="result-name">{{ result.name }}</span>
+                        </div>
+                    </div>
+                    <div v-else style="padding: 20px; text-align: center; color: #7f8c8d;">
+                        <i class="fas fa-info-circle" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.3;"></i>
+                        <p>输入关键词搜索知识图谱中的实体</p>
+                    </div>
+                </div>
+                <div class="history-section" v-if="searchHistory.length > 0">
+                    <div class="history-title">
+                        <i class="fas fa-history"></i> 搜索历史
+                    </div>
+                    <div class="history-items">
+                        <div class="history-item" v-for="(history, index) in searchHistory" :key="index" @click="applyHistorySearch(history)">
+                            <i class="fas fa-clock"></i> {{ history.term }} ({{ history.count }})
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <div class="controls">
+                    <div class="control-group">
+                        <button class="btn" @click="resetView">
+                            <i>🔄</i> 重置视图
+                        </button>
+                        <button class="btn" @click="toggleLabels">
+                            <i>🏷️</i> {{ showLabels ? '隐藏标签' : '显示标签' }}
+                        </button>
+                        <button class="btn btn-highlight" @click="toggleRelationLabels">
+                            <i>🔗</i> {{ showRelationLabels ? '隐藏关系名称' : '显示关系名称' }}
+                        </button>
+                    </div>
+                    <div class="control-group">
+                        <button class="btn" @click="exportImage">
+                            <i>💾</i> 导出图片
+                        </button>
+                        <button class="btn" @click="refreshData">
+                            <i>🔄</i> 刷新数据
+                        </button>
+                    </div>
+                </div>
+
+                <div v-if="error" class="error">
+                    {{ error }}
+                </div>
+
+                <div v-if="loading" class="loading">
+                    <div class="loading-spinner"></div>
+                    <div>正在加载知识图谱数据...</div>
+                </div>
+
+                <div ref="chart" style="width: 100%; height: 600px;"></div>
+
+                <!-- <div class="legend">
+                    <div v-for="(category, index) in categories" :key="index" class="legend-item">
+                        <div class="legend-color" :style="{ backgroundColor: category.color }"></div>
+                        <span>{{ category.name }} ({{ category.count }})</span>
+                    </div>
+                    <div class="legend-rel">
+                        <div class="rel-color"></div>
+                        <span>关系类型</span>
+                    </div>
+                </div> -->
+            </div>
+        </div>
+        <div class="stats-panel">
+            <h2 class="panel-title">📊 图谱统计信息</h2>
+            <div class="stat-card">
+                <h3>节点总数</h3>
+                <div class="value">{{ stats.totalNodes || '加载中...' }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>关系总数</h3>
+                <div class="value">{{ stats.totalRelationships || '加载中...' }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>节点类型</h3>
+                <div class="value">{{ stats.nodeTypes || '加载中...' }}</div>
+            </div>
+            <div class="stat-card">
+                <h3>关系类型</h3>
+                <div class="value">{{ stats.relationshipTypes || '加载中...' }}</div>
+            </div>
+
+            <div class="legend">
+                <div v-for="(category, index) in categories" :key="index" class="legend-item">
+                    <div class="legend-color" :style="{ backgroundColor: category.color }"></div>
+                    <span>{{ category.name }} ({{ category.count }})</span>
+                </div>
+                <div class="legend-rel">
+                    <div class="rel-color"></div>
+                    <span>关系类型</span>
+                </div>
+            </div>
+            <!-- <h2 class="panel-title" style="margin-top: 30px; color: #2ecc71">🔍 节点类型分布</h2>
+            <div v-for="(count, type) in stats.nodeTypeDistribution" :key="type" class="stat-card">
+                <h3>{{ type }}</h3>
+                <div class="value">{{ count }}</div>
+            </div> -->
+        </div>
+        <div class="footer">
+            <p>知识图谱可视化系统 © 2023 | 基于 Neo4j 和 ECharts 构建</p>
+            <p>当前展示节点: {{ nodes.length }}, 关系: {{ links.length }}</p>
+        </div>
+    </div>
+
+    <script>
+        new Vue({
+            el: '#app',
+            data() {
+                return {
+                    driver: null,
+                    chart: null,
+                    maxNodes: 1000,
+                    loading: true,
+                    error: null,
+                    nodes: [],
+                    links: [],
+                    categories: [],
+                    stats: {
+                        totalNodes: 0,
+                        totalRelationships: 0,
+                        nodeTypes: 0,
+                        relationshipTypes: 0,
+                        nodeTypeDistribution: {}
+                    },
+                    showLabels: true,
+                    showRelationLabels: true,
+                    // 搜索相关数据
+                    searchTerm: '',
+                    selectedCategory: 'all',
+                    exactMatch: false,
+                    includeRelations: true,
+                    searchResults: [],
+                    searchHistory: [],
+                    sampleData: [{
+                        id: '1',
+                        name: '人工智能',
+                        category: '技术',
+                        properties: {
+                            desc: "模拟人类智能的计算机系统"
+                        }
+                    }, {
+                        id: '2',
+                        name: '机器学习',
+                        category: '技术',
+                        properties: {
+                            desc: "让计算机从数据中学习的技术"
+                        }
+                    }, ]
+                }
+            },
+            mounted() {
+                this.initChart()
+                this.connectToNeo4j()
+            },
+            beforeDestroy() {
+                if (this.driver) {
+                    this.driver.close()
+                }
+                if (this.chart) {
+                    this.chart.dispose()
+                }
+                window.removeEventListener('resize', this.handleResize)
+            },
+            methods: {
+                initChart() {
+                    if (!this.$refs.chart) {
+                        this.error = '图表容器未找到'
+                        return
+                    }
+                    this.chart = echarts.init(this.$refs.chart)
+                    this.chart.showLoading('default', {
+                        text: '正在加载知识图谱...',
+                        color: '#3498db',
+                        textColor: '#ecf0f1',
+                        maskColor: 'rgba(0, 0, 0, 0.7)'
+                    })
+                },
+                async connectToNeo4j() {
+                    try {
+                        <!-- const uri = 'bolt://localhost:7687' -->
+                        const uri = 'bolt://119.8.232.141:7687'
+                        const user = 'neo4j'
+                        const password = 'zhangsen'
+
+                        this.driver = neo4j.driver(uri, neo4j.auth.basic(user, password), {
+                            encrypted: false,
+                            // 明确指定协议版本（根据服务器版本选择）
+                            config: {
+                                negotiatedBoltVersion: 5.0 // 可选值：4.4, 5.0, 5.1, 5.2, 5.3
+                            },
+                            // 添加调试日志
+                            logging: {
+                                level: 'debug',
+                                logger: (level, message) => console.log(`[NEO4J] ${level}: ${message}`)
+                            }
+                        })
+
+                        // 验证连接
+                        await this.driver.verifyConnectivity()
+                        console.log('Neo4j连接成功')
+
+                        // 获取统计信息
+                        await this.getStatistics()
+
+                        // 获取图谱数据
+                        const session = this.driver.session()
+                        const result = await session.run(`
+                            MATCH (n)-[r]->(m)
+                            RETURN n, r, m
+                            LIMIT ${this.maxNodes}
+                        `)
+
+
+
+                        // 处理数据
+                        this.processGraphData(result)
+                    } catch (error) {
+                        console.error('Neo4j连接或查询错误:', error)
+                        this.error = `数据库错误: ${error.message}`
+                        this.loading = false
+                        this.chart.hideLoading()
+                    }
+                },
+                async getStatistics() {
+                    const session = this.driver.session()
+                    try {
+                        // 获取总节点数
+                        const nodeResult = await session.run('MATCH (n) RETURN count(n) AS count')
+                        this.stats.totalNodes = nodeResult.records[0].get('count').toString()
+
+                        // 获取总关系数
+                        const relResult = await session.run('MATCH ()-[r]->() RETURN count(r) AS count')
+                        this.stats.totalRelationships = relResult.records[0].get('count').toString()
+
+                        // 获取节点类型分布
+                        const nodeTypesResult = await session.run(`
+                            MATCH (n)
+                            WITH labels(n) AS labels
+                            UNWIND labels AS label
+                            RETURN label, count(*) AS count order by count DESC
+                        `)
+
+                        const nodeTypeDistribution = {}
+                        nodeTypesResult.records.forEach(record => {
+                            const type = record.get('label')
+                            const count = record.get('count').toString()
+                            nodeTypeDistribution[type] = count
+                        })
+                        this.stats.nodeTypeDistribution = nodeTypeDistribution
+                        this.stats.nodeTypes = Object.keys(nodeTypeDistribution).length
+
+                        // 获取关系类型数量
+                        const relTypesResult = await session.run(`
+                            MATCH ()-[r]->()
+                            RETURN DISTINCT type(r) AS type, count(r) AS count
+                        `)
+                        this.stats.relationshipTypes = relTypesResult.records.length
+                    } catch (error) {
+                        console.error('获取统计信息失败:', error)
+                    } finally {
+                        session.close()
+                    }
+                },
+                processGraphData(result) {
+                    if (!result || !result.records) {
+                        this.error = '无效的查询结果'
+                        this.loading = false
+                        this.chart.hideLoading()
+                        return
+                    }
+
+                    const categories = []
+                    const nodes = []
+                    const links = []
+                    const nodeMap = new Map()
+                    const categoryMap = new Map()
+                    const categoryCount = {}
+
+                    // 预定义一些颜色
+                    const colors = [
+                        '#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6',
+                        '#1abc9c', '#d35400', '#c0392b', '#27ae60', '#8e44ad'
+                    ]
+
+                    // 处理节点函数
+                    const processNode = (node) => {
+                        const nodeId = node.identity.toString()
+                        if (!nodeMap.has(nodeId)) {
+                            const categoryName = node.labels[0] || 'Unknown'
+
+                            if (!categoryMap.has(categoryName)) {
+                                const colorIndex = categoryMap.size % colors.length
+                                const color = colors[colorIndex]
+
+                                categoryMap.set(categoryName, categoryIndex)
+                                categories.push({
+                                    name: categoryName,
+                                    color: color
+                                })
+
+                                categoryIndex++
+                            }
+
+                            const catIndex = categoryMap.get(categoryName)
+
+                            // 更新类别计数
+                            if (!categoryCount[categoryName]) {
+                                categoryCount[categoryName] = 0
+                            }
+                            categoryCount[categoryName]++
+
+                                // 确定节点名称
+                                const nameProperty =
+                                    node.properties.Name ||
+                                    node.properties.name ||
+                                    node.properties.title ||
+                                    node.properties.id ||
+                                    `节点 ${nodeId}`
+
+                            nodes.push({
+                                id: nodeId,
+                                name: nameProperty,
+                                category: catIndex,
+                                properties: node.properties,
+                                symbolSize: 20,
+                                itemStyle: {
+                                    color: categories[catIndex].color
+                                }
+                            })
+
+                            nodeMap.set(nodeId, true)
+                        }
+                    }
+
+                    // 修复：在函数内定义 categoryIndex
+                    let categoryIndex = 0;
+
+                    result.records.forEach(record => {
+                        // 处理起始节点
+                        const startNode = record.get('n')
+                        processNode(startNode)
+
+                        // 处理结束节点
+                        const endNode = record.get('m')
+                        processNode(endNode)
+
+                        // 处理关系
+                        const relationship = record.get('r')
+                        links.push({
+                            source: startNode.identity.toString(),
+                            target: endNode.identity.toString(),
+                            name: relationship.type,
+                            properties: relationship.properties,
+                            lineStyle: {
+                                width: 2,
+                                curveness: 0.1
+                            }
+                        })
+                    })
+
+                    // 更新类别信息，包括数量和颜色
+                    this.categories = categories.map(cat => {
+                        return {
+                            ...cat,
+                            count: categoryCount[cat.name] || 0
+                        }
+                    })
+
+                    this.nodes = nodes
+                    this.links = links
+
+                    this.renderChart()
+                    this.loading = false
+                },
+                renderChart() {
+                    const option = {
+                        title: {
+                            text: '知识图谱全貌',
+                            subtext: `共 ${this.nodes.length} 个节点 ${this.links.length} 条关系`,
+                            left: 'center',
+                            textStyle: {
+                                color: '#ecf0f1',
+                                fontSize: 22
+                            },
+                            subtextStyle: {
+                                color: '#bdc3c7',
+                                fontSize: 16
+                            }
+                        },
+                        tooltip: {
+                            formatter: params => {
+                                if (params.dataType === 'node') {
+                                    const category = this.categories[params.data.category]
+                                    let info = `<div style="font-weight:bold;color:${category.color};margin-bottom:8px;font-size:16px">${params.name}</div>`
+                                    info += `<div style="margin-bottom:5px;color:#3498db">类型: ${category.name}</div>`
+
+                                    for (const [key, value] of Object.entries(params.data.properties)) {
+                                        info += `<div style="margin-bottom:3px">${key}: <span style="font-weight:bold">${value}</span></div>`
+                                    }
+                                    return `<div style="max-width:300px;padding:15px;background:rgba(20,30,60,0.9);border-radius:10px;border:1px solid #3498db">${info}</div>`
+                                } else {
+                                    let relInfo = `<div style="font-weight:bold;color:#f39c12;margin-bottom:8px;font-size:16px">${params.data.name}</div>`
+                                    for (const [key, value] of Object.entries(params.data.properties)) {
+                                        relInfo += `<div style="margin-bottom:3px">${key}: <span style="font-weight:bold">${value}</span></div>`
+                                    }
+                                    return `<div style="max-width:300px;padding:15px;background:rgba(20,30,60,0.9);border-radius:10px;border:1px solid #f39c12">${relInfo}</div>`
+                                }
+                            },
+                            backgroundColor: 'rgba(0,0,0,0)',
+                            borderColor: 'transparent',
+                            textStyle: {
+                                color: '#ecf0f1'
+                            }
+                        },
+                        legend: {
+                            data: this.categories.map(c => c.name),
+                            selectedMode: 'multiple',
+                            orient: 'horizontal',
+                            bottom: 10,
+                            textStyle: {
+                                color: '#ecf0f1'
+                            },
+                            inactiveColor: '#7f8c8d',
+                            pageIconColor: '#3498db',
+                            pageTextStyle: {
+                                color: '#bdc3c7'
+                            }
+                        },
+                        series: [{
+                            name: '知识图谱',
+                            type: 'graph',
+                            layout: 'force',
+                            data: this.nodes,
+                            links: this.links,
+                            categories: this.categories,
+                            roam: true,
+                            label: {
+                                show: this.showLabels,
+                                position: 'right',
+                                formatter: '{b}',
+                                color: '#ecf0f1',
+                                fontSize: 14,
+                                backgroundColor: 'rgba(20,30,60,0.7)',
+                                padding: [3, 6],
+                                borderRadius: 4,
+                                borderColor: 'rgba(52, 152, 219, 0.5)',
+                                borderWidth: 1
+                            },
+                            edgeLabel: {
+                                show: this.showRelationLabels,
+                                formatter: '{@name}',
+                                color: '#f39c12',
+                                backgroundColor: 'rgba(20,30,60,0.9)',
+                                borderColor: '#f39c12',
+                                borderWidth: 1,
+                                borderRadius: 4,
+                                padding: [4, 8],
+                                position: 'middle',
+                                fontSize: 12,
+                                fontWeight: 'bold'
+                            },
+                            force: {
+                                repulsion: 250,
+                                edgeLength: 120,
+                                gravity: 0.1
+                            },
+                            // 启用布局动画 ↓
+                            animation: true,
+                            animationDurationUpdate: 1000,
+                            emphasis: {
+                                focus: 'adjacency',
+                                label: {
+                                    show: true,
+                                    fontWeight: 'bold'
+                                },
+                                lineStyle: {
+                                    width: 4
+                                }
+                            },
+                            draggable: true,
+                            lineStyle: {
+                                opacity: 0.9,
+                                color: 'source',
+                                curveness: 0.1
+                            },
+                            edgeSymbol: ['none', 'arrow'],
+                            edgeSymbolSize: 8
+                        }],
+                        backgroundColor: 'rgba(0,0,0,0)',
+                        textStyle: {
+                            color: '#ecf0f1'
+                        }
+                    }
+
+                    this.chart.hideLoading()
+                    this.chart.setOption(option, true)
+                    window.addEventListener('resize', this.handleResize)
+
+                    // 添加点击事件
+                    this.chart.on('click', params => {
+                        if (params.dataType === 'node') {
+                            console.log('点击节点:', params.data)
+                        } else if (params.dataType === 'edge') {
+                            console.log('点击关系:', params.data)
+                        }
+                    })
+                },
+                // 新增的搜索相关方法
+                performSearch() {
+                    if (!this.searchTerm.trim()) return;
+
+                    // 执行搜索
+                    const term = this.searchTerm.toLowerCase();
+                    const results = this.nodes.filter(node => {
+                        const nameMatch = this.exactMatch ?
+                            node.name.toLowerCase() === term :
+                            node.name.toLowerCase().includes(term);
+
+                        const categoryMatch = this.selectedCategory === 'all' ||
+                            this.categories[node.category].name === this.selectedCategory;
+
+                        return nameMatch && categoryMatch;
+                    });
+
+                    this.searchResults = results.map(node => ({
+                        id: node.id,
+                        name: node.name,
+                        category: this.categories[node.category].name
+                    }));
+
+                    // 更新搜索历史
+                    this.updateSearchHistory(term, results.length);
+
+                    // 如果有结果，高亮第一个
+                    if (results.length > 0) {
+                        this.highlightNode(results[0].id);
+                    }
+                },
+                clearSearchHistory() {
+                    this.searchHistory = [];
+                    localStorage.removeItem('kg_searchHistory');
+                },
+                applyHistorySearch(history) {
+                    this.searchTerm = history.term;
+                    this.performSearch();
+                },
+                updateSearchHistory(term, count) {
+                    // 添加到历史记录
+                    const existingIndex = this.searchHistory.findIndex(h => h.term === term);
+
+                    if (existingIndex !== -1) {
+                        this.searchHistory.splice(existingIndex, 1);
+                    }
+
+                    this.searchHistory.unshift({
+                        term,
+                        count,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    // 只保留最近的5条记录
+                    if (this.searchHistory.length > 5) {
+                        this.searchHistory.pop();
+                    }
+
+                    // 保存到本地存储
+                    localStorage.setItem('kg_searchHistory', JSON.stringify(this.searchHistory));
+                },
+                highlightNode(nodeId) {
+                    // 在实际应用中，这里会调用后端API获取节点的详细信息
+                    // 并高亮显示该节点
+                    const nodeIndex = this.nodes.findIndex(n => n.id === nodeId);
+                    if (nodeIndex !== -1) {
+                        this.chart.dispatchAction({
+                            type: 'highlight',
+                            seriesIndex: 0,
+                            dataIndex: nodeIndex
+                        });
+
+                        // 将节点移动到视图中心
+                        const node = this.nodes[nodeIndex];
+                        this.chart.dispatchAction({
+                            type: 'focusNodeAdjacency',
+                            seriesIndex: 0,
+                            dataIndex: nodeIndex
+                        });
+                    }
+                },
+                handleResize() {
+                    this.chart && this.chart.resize()
+                },
+                resetView() {
+                    this.chart.dispatchAction({
+                        type: 'graphRoam',
+                        zoom: 1,
+                        originX: 0,
+                        originY: 0
+                    })
+                },
+                toggleLabels() {
+                    this.showLabels = !this.showLabels
+                    this.renderChart()
+                },
+                toggleRelationLabels() {
+                    this.showRelationLabels = !this.showRelationLabels
+                    this.renderChart()
+                },
+                exportImage() {
+                    const url = this.chart.getDataURL({
+                        type: 'png',
+                        pixelRatio: 2,
+                        backgroundColor: '#1d2c4e'
+                    })
+                    const link = document.createElement('a')
+                    link.href = url
+                    link.download = '知识图谱_' + new Date().toLocaleDateString() + '.png'
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+                },
+                refreshData() {
+                    this.loading = true
+                    this.nodes = []
+                    this.links = []
+                    this.categories = []
+                    this.error = null
+                    this.chart.showLoading('default', {
+                        text: '正在加载知识图谱...',
+                        color: '#3498db',
+                        textColor: '#ecf0f1',
+                        maskColor: 'rgba(0, 0, 0, 0.7)'
+                    })
+                    this.connectToNeo4j()
+                }
+            }
+        })
+    </script>
+</body>
+
+</html>
