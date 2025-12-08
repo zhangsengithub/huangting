@@ -67,7 +67,7 @@ class StableYOLODisplay:
             "simhei.ttf",  # 黑体
             "simsun.ttc",  # 宋体
             "/System/Library/Fonts/PingFang.ttc",  # macOS
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # Linux
+            "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",  # Linux
         ]
 
         # 根据系统添加特定字体路径

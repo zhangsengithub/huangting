@@ -56,8 +56,7 @@ class LoRATrainer:
 
         self.model = get_peft_model(self.model, self.lora_config)
         self.model.print_trainable_parameters()
-        self.model.
-        ()
+
 
     def create_training_data(self):
         """创建训练数据"""

@@ -1,11 +1,12 @@
+import matplotlib
+matplotlib.use('TkAgg')  # 明确设置为非交互后端
 import matplotlib.pyplot as plt
 import pandas as pd
 import torch
 import os
-import matplotlib
-matplotlib.use('Agg')  # 明确设置为非交互后端
+
 # 强制使用英文字体避免乱码
-plt.rcParams['font.family'] = ['DejaVu Sans', 'Arial', 'sans-serif']
+plt.rcParams['font.family'] = ['DejaVu Sans', 'sans-serif']
 
 def quick_comparison():
     """快速对比函数 - 完全避免中文"""

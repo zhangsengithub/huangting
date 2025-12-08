@@ -99,8 +99,10 @@ class FaceValidator:
 
 
 # 中文人脸数据集
+#/home/zhangsen/zhangsen/data/facedata#
+#/home/zhangsen/图片/img_align_celeba
 class ChineseFaceDataset(Dataset):
-    def __init__(self, root_dir='/home/zhangsen/图片/img_align_celeba', transform=None, max_samples_per_class=50):
+    def __init__(self, root_dir='/home/zhangsen/zhangsen/data/facedata', transform=None, max_samples_per_class=50):
         self.root_dir = root_dir
         self.transform = transform
         self.data = []
@@ -202,22 +204,38 @@ class ChineseFaceDataset(Dataset):
 def main():
 
     # 超参数设置 - 确保批次大小足够
-    batch_size = 256  # 至少为2
+    batch_size = 10  # 至少为2
     learning_rate = 0.001
     num_epochs = 15
     feature_dim = 512
 
     # 数据预处理
     transform = transforms.Compose([
+    # 调整图像尺寸为224x224像素，这是许多CNN模型的标准输入尺寸
         transforms.Resize((224, 224)),
+    
+    # 随机水平翻转图像，增加数据多样性，提高模型泛化能力
         transforms.RandomHorizontalFlip(),
+    
+    # 随机旋转图像，旋转角度在±10度范围内，增加数据多样性
         transforms.RandomRotation(10),
+    
+    # 随机调整图像的颜色属性，包括亮度和对比度
+    # brightness=0.2 表示亮度变化幅度为20%
+    # contrast=0.2 表示对比度变化幅度为20%
         transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    
+    # 将PIL图像或numpy数组转换为PyTorch张量(tensor)
+    # 同时将像素值从[0,255]范围缩放到[0,1]范围
         transforms.ToTensor(),
+    
+    # 对图像进行标准化处理，使用ImageNet数据集的均值和标准差
+    # 这有助于模型训练更稳定、收敛更快
+    # mean=[0.485, 0.456, 0.406] 是RGB三个通道的均值
+    # std=[0.229, 0.224, 0.225] 是RGB三个通道的标准差
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225])
+                         std=[0.229, 0.224, 0.225])
     ])
-
     print("=" * 60)
     print("          中文人脸识别系统（修复版）")
     print("=" * 60)
